@@ -1,0 +1,29 @@
+# Gradle
+.gradle/
+build/
+
+# Local configuration (sdk path, signing)
+local.properties
+
+# IDE
+.idea/
+*.iml
+
+# Android
+captures/
+.externalNativeBuild/
+.cxx/
+
+# Logs / OS
+*.log
+.DS_Store
+Thumbs.db
+
+# Test artifacts
+app/build/
+
+# Local tool caches / previews
+.android-home/
+.gradle-home/
+.kotlin/
+.preview/

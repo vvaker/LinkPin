@@ -1,0 +1,400 @@
+package com.local.linkpin.ui
+
+import android.graphics.BitmapFactory
+import android.widget.Toast
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.local.linkpin.R
+import com.local.linkpin.data.ShortcutRecord
+import com.local.linkpin.shortcut.DefaultIcon
+import com.local.linkpin.ui.theme.LinkPinGradients
+
+/**
+ * 快捷方式列表主页：深色科技风，支持查看、编辑、删除（确认）、重新固定。
+ */
+@Composable
+fun ShortcutListScreen(
+    viewModel: ShortcutListViewModel,
+    onAdd: () -> Unit,
+    onEdit: (ShortcutRecord) -> Unit,
+) {
+    val records by viewModel.records.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    var pendingDelete by remember { mutableStateOf<ShortcutRecord?>(null) }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(LinkPinGradients.background),
+    ) {
+        // 顶部霓虹光晕
+        Box(
+            modifier = Modifier
+                .size(340.dp)
+                .offset(x = 110.dp, y = (-160).dp)
+                .background(
+                    Brush.radialGradient(
+                        colors = listOf(
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.14f),
+                            Color.Transparent,
+                        ),
+                    ),
+                ),
+        )
+        Scaffold(
+            containerColor = Color.Transparent,
+            floatingActionButton = { GradientFab(onClick = onAdd) },
+        ) { padding ->
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding),
+            ) {
+                BrandHeader(count = records.size)
+                if (records.isEmpty()) {
+                    EmptyState(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth(),
+                    )
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 96.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        items(records, key = { it.id }) { record ->
+                            ShortcutCard(
+                                record = record,
+                                onEdit = { onEdit(record) },
+                                onRepin = {
+                                    viewModel.repin(record) { ok ->
+                                        Toast.makeText(
+                                            context,
+                                            if (ok) "已重新请求固定" else "桌面未确认，请检查桌面或重试",
+                                            Toast.LENGTH_SHORT,
+                                        ).show()
+                                    }
+                                },
+                                onDelete = { pendingDelete = record },
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    pendingDelete?.let { record ->
+        AlertDialog(
+            onDismissRequest = { pendingDelete = null },
+            title = { Text("删除快捷方式") },
+            text = {
+                Text("将删除本地记录与图标文件。桌面上的旧图标需要你长按后手动移除。")
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.delete(record)
+                        pendingDelete = null
+                        Toast.makeText(context, "已删除", Toast.LENGTH_SHORT).show()
+                    },
+                ) {
+                    Text("删除")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingDelete = null }) {
+                    Text("取消")
+                }
+            },
+        )
+    }
+}
+
+@Composable
+private fun GradientFab(onClick: () -> Unit) {
+    Surface(
+        onClick = onClick,
+        modifier = Modifier
+            .size(58.dp)
+            .shadow(
+                elevation = 18.dp,
+                shape = CircleShape,
+                ambientColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.55f),
+                spotColor = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.55f),
+            ),
+        shape = CircleShape,
+        color = Color.Transparent,
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(LinkPinGradients.accent),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                imageVector = Icons.Default.Add,
+                contentDescription = "新建快捷方式",
+                tint = Color.White,
+                modifier = Modifier.size(28.dp),
+            )
+        }
+    }
+}
+
+@Composable
+private fun BrandHeader(count: Int) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp, vertical = 18.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            modifier = Modifier
+                .size(46.dp)
+                .shadow(
+                    elevation = 14.dp,
+                    shape = RoundedCornerShape(14.dp),
+                    ambientColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
+                    spotColor = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.5f),
+                )
+                .clip(RoundedCornerShape(14.dp))
+                .background(LinkPinGradients.accent),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                painter = painterResource(R.drawable.ic_brand_link),
+                contentDescription = null,
+                tint = Color.White,
+                modifier = Modifier.size(26.dp),
+            )
+        }
+        Spacer(modifier = Modifier.width(14.dp))
+        Column {
+            Text(
+                text = "链接直达",
+                style = MaterialTheme.typography.headlineSmall,
+            )
+            Text(
+                text = if (count > 0) "已固定 $count 个快捷方式" else "把常用链接固定到桌面，一键直达",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+@Composable
+private fun EmptyState(modifier: Modifier = Modifier) {
+    Column(
+        modifier = modifier.padding(horizontal = 40.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        Box(
+            modifier = Modifier
+                .size(128.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.08f))
+                .border(
+                    width = 1.dp,
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.35f),
+                    shape = CircleShape,
+                ),
+            contentAlignment = Alignment.Center,
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(80.dp)
+                    .background(
+                        Brush.radialGradient(
+                            colors = listOf(
+                                MaterialTheme.colorScheme.primary.copy(alpha = 0.18f),
+                                Color.Transparent,
+                            ),
+                        ),
+                    ),
+            )
+            Icon(
+                painter = painterResource(R.drawable.ic_brand_link),
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(56.dp),
+            )
+        }
+        Spacer(modifier = Modifier.height(28.dp))
+        Text(
+            text = "还没有快捷方式",
+            style = MaterialTheme.typography.titleLarge,
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = "点击右下角的按钮，把视频、书籍或网页链接固定到桌面，之后一键直达",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+        )
+    }
+}
+
+@Composable
+private fun ShortcutCard(
+    record: ShortcutRecord,
+    onEdit: () -> Unit,
+    onRepin: () -> Unit,
+    onDelete: () -> Unit,
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            val icon = rememberShortcutIcon(record)
+            Image(
+                bitmap = icon,
+                contentDescription = null,
+                modifier = Modifier
+                    .size(52.dp)
+                    .clip(RoundedCornerShape(15.dp))
+                    .border(
+                        width = 1.dp,
+                        color = Color.White.copy(alpha = 0.12f),
+                        shape = RoundedCornerShape(15.dp),
+                    ),
+            )
+            Spacer(modifier = Modifier.width(14.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = record.label,
+                    style = MaterialTheme.typography.titleMedium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = record.url,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            IconButton(
+                onClick = onEdit,
+                modifier = Modifier
+                    .size(38.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.surfaceVariant),
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Edit,
+                    contentDescription = "编辑",
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(19.dp),
+                )
+            }
+            Spacer(modifier = Modifier.width(4.dp))
+            IconButton(
+                onClick = onRepin,
+                modifier = Modifier
+                    .size(38.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.surfaceVariant),
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Refresh,
+                    contentDescription = "重新固定",
+                    tint = MaterialTheme.colorScheme.secondary,
+                    modifier = Modifier.size(19.dp),
+                )
+            }
+            Spacer(modifier = Modifier.width(4.dp))
+            IconButton(
+                onClick = onDelete,
+                modifier = Modifier
+                    .size(38.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.surfaceVariant),
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Delete,
+                    contentDescription = "删除",
+                    tint = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.size(19.dp),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun rememberShortcutIcon(record: ShortcutRecord): ImageBitmap {
+    val iconPath = record.iconPath
+    val label = record.label
+    return remember(iconPath, label) {
+        val bitmap = if (iconPath != null) {
+            runCatching { BitmapFactory.decodeFile(iconPath) }.getOrNull()
+        } else {
+            null
+        }
+        (bitmap ?: DefaultIcon.generate(label)).asImageBitmap()
+    }
+}

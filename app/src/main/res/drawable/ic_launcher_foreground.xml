@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- 霓虹辉光层 -->
+    <group
+        android:translateX="21.84"
+        android:translateY="21.84"
+        android:scaleX="2.68"
+        android:scaleY="2.68"
+        android:pivotX="0"
+        android:pivotY="0">
+        <path
+            android:fillColor="#3322D3EE"
+            android:pathData="M3.9,12c0,-1.71 1.39,-3.1 3.1,-3.1h4L11,7L7,7c-2.76,0 -5,2.24 -5,5s2.24,5 5,5h4v-1.9L7,15.1c-1.71,0 -3.1,-1.39 -3.1,-3.1zM8,13h8v-2L8,11v2zM17,7h-4v1.9h4c1.71,0 3.1,1.39 3.1,3.1s-1.39,3.1 -3.1,3.1h-4L13,17h4c2.76,0 5,-2.24 5,-5s-2.24,-5 -5,-5z" />
+    </group>
+    <!-- 主链节：白 → 蓝渐变 -->
+    <group
+        android:translateX="22.8"
+        android:translateY="22.8"
+        android:scaleX="2.6"
+        android:scaleY="2.6"
+        android:pivotX="0"
+        android:pivotY="0">
+        <path
+            android:pathData="M3.9,12c0,-1.71 1.39,-3.1 3.1,-3.1h4L11,7L7,7c-2.76,0 -5,2.24 -5,5s2.24,5 5,5h4v-1.9L7,15.1c-1.71,0 -3.1,-1.39 -3.1,-3.1zM8,13h8v-2L8,11v2zM17,7h-4v1.9h4c1.71,0 3.1,1.39 3.1,3.1s-1.39,3.1 -3.1,3.1h-4L13,17h4c2.76,0 5,-2.24 5,-5s-2.24,-5 -5,-5z">
+            <aapt:attr name="android:fillColor">
+                <gradient
+                    android:type="linear"
+                    android:startX="0"
+                    android:startY="0"
+                    android:endX="108"
+                    android:endY="108"
+                    android:startColor="#E6FEFF"
+                    android:endColor="#6E9BFF" />
+            </aapt:attr>
+        </path>
+    </group>
+    <!-- 点缀节点 -->
+    <path
+        android:fillColor="#FFA855F7"
+        android:pathData="M79,38 m-3.6,0 a3.6,3.6 0 1,1 7.2,0 a3.6,3.6 0 1,1 -7.2,0" />
+    <path
+        android:fillColor="#FF22D3EE"
+        android:pathData="M29,70 m-2.6,0 a2.6,2.6 0 1,1 5.2,0 a2.6,2.6 0 1,1 -5.2,0" />
+</vector>
