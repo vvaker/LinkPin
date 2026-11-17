@@ -11,6 +11,58 @@ import kotlinx.coroutines.withContext
 import java.io.File
 
 /**
+ * 通用图片解码：先读边界计算采样率，限制最大边长，避免大图 OOM。
+ * 裁剪页、预览页与图标处理共用的解码入口。
+ */
+object IconDecode {
+
+    fun fromUri(context: Context, uri: Uri, maxDim: Int): Bitmap? =
+        decodeSampled(
+            boundsOf = { options ->
+                context.contentResolver.openInputStream(uri)?.use { input ->
+                    BitmapFactory.decodeStream(input, null, options)
+                }
+                options.outWidth > 0 && options.outHeight > 0
+            },
+            decode = { options ->
+                context.contentResolver.openInputStream(uri)?.use { input ->
+                    BitmapFactory.decodeStream(input, null, options)
+                }
+            },
+            maxDim = maxDim,
+        )
+
+    fun fromFile(path: String, maxDim: Int): Bitmap? =
+        decodeSampled(
+            boundsOf = { options ->
+                BitmapFactory.decodeFile(path, options)
+                options.outWidth > 0 && options.outHeight > 0
+            },
+            decode = { options -> BitmapFactory.decodeFile(path, options) },
+            maxDim = maxDim,
+        )
+
+    private fun decodeSampled(
+        boundsOf: (BitmapFactory.Options) -> Boolean,
+        decode: (BitmapFactory.Options) -> Bitmap?,
+        maxDim: Int,
+    ): Bitmap? {
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        if (!boundsOf(bounds)) return null
+        if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
+
+        var sampleSize = 1
+        while (bounds.outWidth / sampleSize > maxDim ||
+            bounds.outHeight / sampleSize > maxDim
+        ) {
+            sampleSize *= 2
+        }
+        val options = BitmapFactory.Options().apply { inSampleSize = sampleSize }
+        return decode(options)
+    }
+}
+
+/**
  * 图标处理：采样解码（≤1024px）→ 居中裁剪正方形 → 512x512 PNG 存应用私有目录。
  */
 class IconProcessor(private val context: Context) {
@@ -18,24 +70,29 @@ class IconProcessor(private val context: Context) {
     private val maxDecodeDimension = 1024
 
     suspend fun process(source: Uri, id: String): String? = withContext(Dispatchers.IO) {
-        try {
-            val bitmap = decodeSampled(source) ?: return@withContext null
-            val cropped = centerCropSquare(bitmap)
-            val scaled = if (cropped.width != DefaultIcon.SIZE || cropped.height != DefaultIcon.SIZE) {
-                Bitmap.createScaledBitmap(cropped, DefaultIcon.SIZE, DefaultIcon.SIZE, true)
-            } else {
-                cropped
-            }
-            val file = iconFile(id)
-            file.parentFile?.mkdirs()
-            val ok = file.outputStream().use { out ->
-                scaled.compress(Bitmap.CompressFormat.PNG, 100, out)
-            }
-            if (!ok) return@withContext null
-            file.absolutePath
-        } catch (e: Exception) {
-            null
+        val bitmap = IconDecode.fromUri(context, source, maxDecodeDimension) ?: return@withContext null
+        runCatching { writeIcon(bitmap, id) }.getOrNull()
+    }
+
+    /** 把裁剪确认后的位图居中裁剪为正方形并保存为 512x512 PNG。 */
+    suspend fun saveBitmap(source: Bitmap, id: String): String? = withContext(Dispatchers.IO) {
+        runCatching { writeIcon(source, id) }.getOrNull()
+    }
+
+    private fun writeIcon(bitmap: Bitmap, id: String): String? {
+        val cropped = centerCropSquare(bitmap)
+        val scaled = if (cropped.width != DefaultIcon.SIZE || cropped.height != DefaultIcon.SIZE) {
+            Bitmap.createScaledBitmap(cropped, DefaultIcon.SIZE, DefaultIcon.SIZE, true)
+        } else {
+            cropped
         }
+        val file = iconFile(id)
+        file.parentFile?.mkdirs()
+        val ok = file.outputStream().use { out ->
+            scaled.compress(Bitmap.CompressFormat.PNG, 100, out)
+        }
+        if (!ok) return null
+        return file.absolutePath
     }
 
     fun iconFile(id: String): File = File(File(context.filesDir, "icons"), "$id.png")
@@ -62,25 +119,6 @@ class IconProcessor(private val context: Context) {
         val scaled = Bitmap.createScaledBitmap(bitmap, contentSize, contentSize, true)
         c.drawBitmap(scaled, inset.toFloat(), inset.toFloat(), null)
         return canvas
-    }
-
-    private fun decodeSampled(uri: Uri): Bitmap? {
-        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-        context.contentResolver.openInputStream(uri)?.use { input ->
-            BitmapFactory.decodeStream(input, null, bounds)
-        }
-        if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
-
-        var sampleSize = 1
-        while (bounds.outWidth / sampleSize > maxDecodeDimension ||
-            bounds.outHeight / sampleSize > maxDecodeDimension
-        ) {
-            sampleSize *= 2
-        }
-        val options = BitmapFactory.Options().apply { inSampleSize = sampleSize }
-        return context.contentResolver.openInputStream(uri)?.use { input ->
-            BitmapFactory.decodeStream(input, null, options)
-        }
     }
 
     private fun centerCropSquare(source: Bitmap): Bitmap {

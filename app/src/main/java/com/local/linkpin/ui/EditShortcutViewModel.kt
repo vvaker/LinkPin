@@ -1,5 +1,6 @@
 package com.local.linkpin.ui
 
+import android.graphics.Bitmap
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -17,7 +18,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 /**
- * 创建/编辑表单 ViewModel：表单状态、保存（创建或更新）、图标处理。
+ * 创建/编辑表单 ViewModel：表单状态、保存（创建或更新）、图标处理与裁剪状态。
  */
 class EditShortcutViewModel(
     private val repository: ShortcutRepository,
@@ -29,6 +30,8 @@ class EditShortcutViewModel(
         val url: String = "",
         val label: String = "",
         val pickedIconUri: Uri? = null,
+        /** 裁剪确认后的位图；非空时保存优先使用它。 */
+        val croppedIcon: Bitmap? = null,
         val existingIconPath: String? = null,
         val removeIcon: Boolean = false,
     )
@@ -44,6 +47,9 @@ class EditShortcutViewModel(
     private var editing: ShortcutRecord? = null
     val isEditing: Boolean get() = editing != null
 
+    /** 选新图时的兜底：取消裁剪后回退到上一张已确认的裁剪图。 */
+    private var cropBackup: Bitmap? = null
+
     fun init(record: ShortcutRecord?) {
         editing = record
         _form.value = FormState(
@@ -58,11 +64,23 @@ class EditShortcutViewModel(
     fun onLabelChange(value: String) =
         _form.update { it.copy(label = value.take(LinkValidator.LABEL_MAX_LENGTH)) }
 
-    fun onIconPicked(uri: Uri) =
-        _form.update { it.copy(pickedIconUri = uri, removeIcon = false) }
+    fun onIconPicked(uri: Uri) {
+        cropBackup = _form.value.croppedIcon
+        _form.update { it.copy(pickedIconUri = uri, croppedIcon = null, removeIcon = false) }
+    }
+
+    fun onCropConfirmed(bitmap: Bitmap) {
+        cropBackup = null
+        _form.update { it.copy(croppedIcon = bitmap) }
+    }
+
+    fun onCropCancelled() {
+        _form.update { it.copy(pickedIconUri = null, croppedIcon = cropBackup) }
+        cropBackup = null
+    }
 
     fun onRemoveIcon() =
-        _form.update { it.copy(pickedIconUri = null, removeIcon = true) }
+        _form.update { it.copy(pickedIconUri = null, croppedIcon = null, removeIcon = true) }
 
     fun save(onResult: (SaveResult) -> Unit) {
         viewModelScope.launch {
@@ -101,18 +119,31 @@ class EditShortcutViewModel(
 
             var iconPath = record.iconPath
             val oldPath = base?.iconPath
-            if (f.removeIcon) {
-                oldPath?.let { runCatching { File(it).delete() } }
-                iconPath = null
-            } else if (f.pickedIconUri != null) {
-                val newPath = iconProcessor.process(f.pickedIconUri, record.id)
-                if (newPath != null) {
-                    if (oldPath != null && oldPath != newPath) {
-                        runCatching { File(oldPath).delete() }
-                    }
-                    iconPath = newPath
+            when {
+                f.removeIcon -> {
+                    oldPath?.let { runCatching { File(it).delete() } }
+                    iconPath = null
                 }
-                // 处理失败时保留旧图标（或默认图标），不中断保存
+                f.croppedIcon != null -> {
+                    val newPath = iconProcessor.saveBitmap(f.croppedIcon!!, record.id)
+                    if (newPath != null) {
+                        if (oldPath != null && oldPath != newPath) {
+                            runCatching { File(oldPath).delete() }
+                        }
+                        iconPath = newPath
+                    }
+                    // 处理失败时保留旧图标（或默认图标），不中断保存
+                }
+                f.pickedIconUri != null -> {
+                    // 兜底：裁剪被跳过时仍按居中裁剪处理
+                    val newPath = iconProcessor.process(f.pickedIconUri!!, record.id)
+                    if (newPath != null) {
+                        if (oldPath != null && oldPath != newPath) {
+                            runCatching { File(oldPath).delete() }
+                        }
+                        iconPath = newPath
+                    }
+                }
             }
 
             val finalRecord = record.copy(iconPath = iconPath)

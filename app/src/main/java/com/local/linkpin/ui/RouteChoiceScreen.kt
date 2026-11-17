@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -27,13 +28,19 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -48,18 +55,22 @@ import com.local.linkpin.R
 import com.local.linkpin.data.LinkTarget
 import com.local.linkpin.data.RouteTarget
 import com.local.linkpin.ui.theme.LinkPinGradients
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /**
- * 首次选择面板：候选 App + 浏览器选项；选择即回调（保存规则 + 启动），取消不保存。
+ * 首次选择面板：候选 App + 浏览器选项；勾选"记住我的选择"保存规则并直达，不勾选下次继续询问。
  * 深色科技风：渐变品牌头、描边卡片、行尾箭头。
  */
 @Composable
 fun RouteChoiceScreen(
     apps: List<LinkTarget.App>,
     browser: LinkTarget.Browser?,
-    onSelect: (RouteTarget) -> Unit,
+    onSelect: (RouteTarget, Boolean) -> Unit,
     onDismiss: () -> Unit,
 ) {
+    var rememberChoice by rememberSaveable { mutableStateOf(true) }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -112,7 +123,7 @@ fun RouteChoiceScreen(
                             style = MaterialTheme.typography.titleLarge,
                         )
                         Text(
-                            text = "仅首次选择，之后同域名将直接打开",
+                            text = "勾选“记住”后，同域名将直接打开",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -121,12 +132,15 @@ fun RouteChoiceScreen(
                 Spacer(modifier = Modifier.height(14.dp))
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 Spacer(modifier = Modifier.height(6.dp))
-                LazyColumn(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                LazyColumn(
+                    modifier = Modifier.heightIn(max = 380.dp),
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                ) {
                     items(apps, key = { it.packageName }) { app ->
                         ChoiceRow(
                             icon = { AppIcon(packageName = app.packageName) },
                             label = app.label,
-                            onClick = { onSelect(RouteTarget.App(app.packageName)) },
+                            onClick = { onSelect(RouteTarget.App(app.packageName), rememberChoice) },
                         )
                     }
                     if (browser != null) {
@@ -134,9 +148,36 @@ fun RouteChoiceScreen(
                             ChoiceRow(
                                 icon = { BrowserIcon() },
                                 label = "浏览器 · ${browser.label}",
-                                onClick = { onSelect(RouteTarget.Browser) },
+                                onClick = { onSelect(RouteTarget.Browser, rememberChoice) },
                             )
                         }
+                    }
+                }
+                Spacer(modifier = Modifier.height(6.dp))
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                Spacer(modifier = Modifier.height(2.dp))
+                // 记住勾选：默认勾选（直达），取消勾选则下次继续询问
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { rememberChoice = !rememberChoice }
+                        .padding(horizontal = 16.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Checkbox(
+                        checked = rememberChoice,
+                        onCheckedChange = { rememberChoice = it },
+                    )
+                    Column(modifier = Modifier.padding(start = 6.dp)) {
+                        Text(
+                            text = "记住我的选择",
+                            style = MaterialTheme.typography.bodyLarge,
+                        )
+                        Text(
+                            text = "不勾选时，下次打开仍会询问",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                     }
                 }
                 Spacer(modifier = Modifier.height(4.dp))
@@ -185,10 +226,25 @@ private fun ChoiceRow(
 
 @Composable
 private fun AppIcon(packageName: String) {
-    val bitmap = rememberAppIcon(packageName)
+    val context = LocalContext.current
+    val bitmap by produceState<ImageBitmap?>(initialValue = null, packageName) {
+        // 后台线程取图标，避免主线程合成期卡顿
+        value = withContext(Dispatchers.IO) {
+            runCatching {
+                val drawable = context.packageManager.getApplicationIcon(packageName)
+                val width = drawable.intrinsicWidth.coerceAtLeast(1)
+                val height = drawable.intrinsicHeight.coerceAtLeast(1)
+                val bmp = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+                val canvas = Canvas(bmp)
+                drawable.setBounds(0, 0, canvas.width, canvas.height)
+                drawable.draw(canvas)
+                bmp.asImageBitmap()
+            }.getOrNull()
+        }
+    }
     if (bitmap != null) {
         Image(
-            bitmap = bitmap,
+            bitmap = bitmap!!,
             contentDescription = null,
             modifier = Modifier
                 .size(40.dp)
@@ -224,22 +280,5 @@ private fun BrowserIcon() {
             tint = Color.White,
             modifier = Modifier.size(20.dp),
         )
-    }
-}
-
-@Composable
-private fun rememberAppIcon(packageName: String): ImageBitmap? {
-    val context = LocalContext.current
-    return remember(packageName) {
-        runCatching {
-            val drawable = context.packageManager.getApplicationIcon(packageName)
-            val width = drawable.intrinsicWidth.coerceAtLeast(1)
-            val height = drawable.intrinsicHeight.coerceAtLeast(1)
-            val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-            val canvas = Canvas(bitmap)
-            drawable.setBounds(0, 0, canvas.width, canvas.height)
-            drawable.draw(canvas)
-            bitmap.asImageBitmap()
-        }.getOrNull()
     }
 }

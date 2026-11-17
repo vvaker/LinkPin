@@ -8,6 +8,10 @@ import com.local.linkpin.data.ShortcutRepository
 import com.local.linkpin.routing.LinkResolver
 import com.local.linkpin.shortcut.IconProcessor
 import com.local.linkpin.shortcut.ShortcutPublisher
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 
 private val Context.linkPinDataStore by preferencesDataStore(name = "linkpin_prefs")
 
@@ -32,8 +36,17 @@ class LinkPinApp : Application() {
     lateinit var container: AppContainer
         private set
 
+    private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
     override fun onCreate() {
         super.onCreate()
         container = AppContainer(this)
+        // 后台预热：PackageManager 首次查询与 DataStore 首次读取最耗时，
+        // 提前完成能显著减少桌面图标点击后的等待（卡顿主要来源）。
+        appScope.launch {
+            container.linkResolver.resolve("https://warmup.linkpin.invalid/")
+            container.shortcutRepository.get("__warmup__")
+            container.routeRuleRepository.get("__warmup__")
+        }
     }
 }

@@ -1,11 +1,11 @@
 package com.local.linkpin.ui
 
-import android.graphics.BitmapFactory
 import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -39,6 +39,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -58,7 +59,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.local.linkpin.R
 import com.local.linkpin.data.ShortcutRecord
 import com.local.linkpin.shortcut.DefaultIcon
+import com.local.linkpin.shortcut.IconDecode
 import com.local.linkpin.ui.theme.LinkPinGradients
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /**
  * 快捷方式列表主页：深色科技风，支持查看、编辑、删除（确认）、重新固定。
@@ -72,6 +76,20 @@ fun ShortcutListScreen(
     val records by viewModel.records.collectAsStateWithLifecycle()
     val context = LocalContext.current
     var pendingDelete by remember { mutableStateOf<ShortcutRecord?>(null) }
+    var previewRecord by remember { mutableStateOf<ShortcutRecord?>(null) }
+
+    // 预览大图：后台解码原始图标文件，避免主线程卡顿
+    val previewBitmap by produceState<ImageBitmap?>(initialValue = null, previewRecord) {
+        val record = previewRecord
+        value = if (record == null) {
+            null
+        } else {
+            withContext(Dispatchers.IO) {
+                val bitmap = record.iconPath?.let { IconDecode.fromFile(it, 2048) }
+                (bitmap ?: DefaultIcon.generate(record.label)).asImageBitmap()
+            }
+        }
+    }
 
     Box(
         modifier = Modifier
@@ -128,6 +146,7 @@ fun ShortcutListScreen(
                                     }
                                 },
                                 onDelete = { pendingDelete = record },
+                                onPreview = { previewRecord = record },
                             )
                         }
                     }
@@ -159,6 +178,13 @@ fun ShortcutListScreen(
                     Text("取消")
                 }
             },
+        )
+    }
+
+    if (previewRecord != null) {
+        ImagePreviewDialog(
+            bitmap = previewBitmap,
+            onDismiss = { previewRecord = null },
         )
     }
 }
@@ -296,7 +322,15 @@ private fun ShortcutCard(
     onEdit: () -> Unit,
     onRepin: () -> Unit,
     onDelete: () -> Unit,
+    onPreview: () -> Unit,
 ) {
+    // 后台解码图标文件，避免主线程卡顿
+    val icon by produceState<ImageBitmap?>(initialValue = null, record.iconPath, record.label) {
+        value = withContext(Dispatchers.IO) {
+            val bitmap = record.iconPath?.let { IconDecode.fromFile(it, 512) }
+            (bitmap ?: DefaultIcon.generate(record.label)).asImageBitmap()
+        }
+    }
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
@@ -307,19 +341,29 @@ private fun ShortcutCard(
             modifier = Modifier.padding(horizontal = 14.dp, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            val icon = rememberShortcutIcon(record)
-            Image(
-                bitmap = icon,
-                contentDescription = null,
+            Box(
                 modifier = Modifier
                     .size(52.dp)
                     .clip(RoundedCornerShape(15.dp))
-                    .border(
-                        width = 1.dp,
-                        color = Color.White.copy(alpha = 0.12f),
-                        shape = RoundedCornerShape(15.dp),
-                    ),
-            )
+                    .clickable(onClick = onPreview),
+            ) {
+                icon?.let {
+                    Image(
+                        bitmap = it,
+                        contentDescription = "图标预览（点击放大）",
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                }
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .border(
+                            width = 1.dp,
+                            color = Color.White.copy(alpha = 0.12f),
+                            shape = RoundedCornerShape(15.dp),
+                        ),
+                )
+            }
             Spacer(modifier = Modifier.width(14.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
@@ -385,16 +429,3 @@ private fun ShortcutCard(
     }
 }
 
-@Composable
-private fun rememberShortcutIcon(record: ShortcutRecord): ImageBitmap {
-    val iconPath = record.iconPath
-    val label = record.label
-    return remember(iconPath, label) {
-        val bitmap = if (iconPath != null) {
-            runCatching { BitmapFactory.decodeFile(iconPath) }.getOrNull()
-        } else {
-            null
-        }
-        (bitmap ?: DefaultIcon.generate(label)).asImageBitmap()
-    }
-}
