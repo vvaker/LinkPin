@@ -26,12 +26,12 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -44,6 +44,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
@@ -60,7 +61,7 @@ import kotlinx.coroutines.withContext
 
 /**
  * 首次选择面板：候选 App + 浏览器选项；勾选"记住我的选择"保存规则并直达，不勾选下次继续询问。
- * 深色科技风：渐变品牌头、描边卡片、行尾箭头。
+ * 暖色卡片风：柔和暖色遮罩、大圆角白卡、渐变品牌头、胶囊图标。
  */
 @Composable
 fun RouteChoiceScreen(
@@ -74,7 +75,7 @@ fun RouteChoiceScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.45f))
+            .background(Color(0x8C2A1D14))
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
@@ -82,30 +83,35 @@ fun RouteChoiceScreen(
             ),
         contentAlignment = Alignment.Center,
     ) {
-        Card(
+        Surface(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 28.dp)
+                .padding(horizontal = 24.dp)
+                .shadow(
+                    elevation = 24.dp,
+                    shape = RoundedCornerShape(28.dp),
+                    ambientColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.35f),
+                    spotColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f),
+                )
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
                     onClick = {},
                 ),
-            shape = RoundedCornerShape(24.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surface,
-            ),
+            shape = RoundedCornerShape(28.dp),
+            color = MaterialTheme.colorScheme.surface,
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         ) {
-            Column(modifier = Modifier.padding(top = 20.dp, bottom = 12.dp)) {
+            Column {
+                // 头部：渐变品牌图标 + 标题
                 Row(
-                    modifier = Modifier.padding(horizontal = 20.dp),
+                    modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 22.dp, bottom = 16.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(40.dp)
-                            .clip(RoundedCornerShape(12.dp))
+                            .size(46.dp)
+                            .clip(RoundedCornerShape(15.dp))
                             .background(LinkPinGradients.accent),
                         contentAlignment = Alignment.Center,
                     ) {
@@ -113,15 +119,17 @@ fun RouteChoiceScreen(
                             painter = painterResource(R.drawable.ic_brand_link),
                             contentDescription = null,
                             tint = Color.White,
-                            modifier = Modifier.size(22.dp),
+                            modifier = Modifier.size(24.dp),
                         )
                     }
-                    Spacer(modifier = Modifier.width(12.dp))
+                    Spacer(modifier = Modifier.width(14.dp))
                     Column {
                         Text(
                             text = "选择打开方式",
                             style = MaterialTheme.typography.titleLarge,
+                            color = MaterialTheme.colorScheme.onSurface,
                         )
+                        Spacer(modifier = Modifier.height(2.dp))
                         Text(
                             text = "勾选“记住”后，同域名将直接打开",
                             style = MaterialTheme.typography.bodySmall,
@@ -129,12 +137,16 @@ fun RouteChoiceScreen(
                         )
                     }
                 }
-                Spacer(modifier = Modifier.height(14.dp))
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                Spacer(modifier = Modifier.height(6.dp))
+
+                HorizontalDivider(
+                    color = MaterialTheme.colorScheme.outlineVariant,
+                    thickness = 1.dp,
+                )
+
+                // 候选列表
                 LazyColumn(
-                    modifier = Modifier.heightIn(max = 380.dp),
-                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                    modifier = Modifier.heightIn(max = 360.dp),
+                    verticalArrangement = Arrangement.spacedBy(0.dp),
                 ) {
                     items(apps, key = { it.packageName }) { app ->
                         ChoiceRow(
@@ -153,25 +165,36 @@ fun RouteChoiceScreen(
                         }
                     }
                 }
-                Spacer(modifier = Modifier.height(6.dp))
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                Spacer(modifier = Modifier.height(2.dp))
+
+                HorizontalDivider(
+                    color = MaterialTheme.colorScheme.outlineVariant,
+                    thickness = 1.dp,
+                )
+
                 // 记住勾选：默认勾选（直达），取消勾选则下次继续询问
                 Row(
                     modifier = Modifier
+                        .padding(horizontal = 14.dp, vertical = 10.dp)
                         .fillMaxWidth()
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f))
                         .clickable { rememberChoice = !rememberChoice }
-                        .padding(horizontal = 16.dp, vertical = 4.dp),
+                        .padding(horizontal = 10.dp, vertical = 6.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Checkbox(
                         checked = rememberChoice,
                         onCheckedChange = { rememberChoice = it },
+                        colors = CheckboxDefaults.colors(
+                            checkedColor = MaterialTheme.colorScheme.primary,
+                            checkmarkColor = Color.White,
+                        ),
                     )
-                    Column(modifier = Modifier.padding(start = 6.dp)) {
+                    Column(modifier = Modifier.padding(start = 4.dp)) {
                         Text(
                             text = "记住我的选择",
                             style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurface,
                         )
                         Text(
                             text = "不勾选时，下次打开仍会询问",
@@ -180,12 +203,17 @@ fun RouteChoiceScreen(
                         )
                     }
                 }
-                Spacer(modifier = Modifier.height(4.dp))
+
                 TextButton(
                     onClick = onDismiss,
-                    modifier = Modifier.align(Alignment.End),
+                    modifier = Modifier
+                        .align(Alignment.End)
+                        .padding(end = 10.dp, bottom = 6.dp),
                 ) {
-                    Text("取消")
+                    Text(
+                        text = "取消",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
             }
         }
@@ -201,16 +229,16 @@ private fun ChoiceRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
             .clickable(onClick = onClick)
-            .padding(horizontal = 14.dp, vertical = 10.dp),
+            .padding(horizontal = 20.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         icon()
-        Spacer(modifier = Modifier.width(12.dp))
+        Spacer(modifier = Modifier.width(14.dp))
         Text(
             text = label,
             style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.weight(1f),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
@@ -218,8 +246,8 @@ private fun ChoiceRow(
         Icon(
             imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
             contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.size(22.dp),
+            tint = MaterialTheme.colorScheme.outline,
+            modifier = Modifier.size(20.dp),
         )
     }
 }
@@ -248,19 +276,19 @@ private fun AppIcon(packageName: String) {
             contentDescription = null,
             modifier = Modifier
                 .size(40.dp)
-                .clip(CircleShape)
+                .clip(RoundedCornerShape(12.dp))
                 .border(
                     width = 1.dp,
                     color = MaterialTheme.colorScheme.outlineVariant,
-                    shape = CircleShape,
+                    shape = RoundedCornerShape(12.dp),
                 ),
         )
     } else {
         Box(
             modifier = Modifier
                 .size(40.dp)
-                .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.primary),
+                .clip(RoundedCornerShape(12.dp))
+                .background(MaterialTheme.colorScheme.surfaceVariant),
         )
     }
 }
@@ -270,7 +298,7 @@ private fun BrowserIcon() {
     Box(
         modifier = Modifier
             .size(40.dp)
-            .clip(CircleShape)
+            .clip(RoundedCornerShape(12.dp))
             .background(LinkPinGradients.accent),
         contentAlignment = Alignment.Center,
     ) {

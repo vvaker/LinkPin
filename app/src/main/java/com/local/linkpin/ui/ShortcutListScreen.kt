@@ -26,7 +26,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
@@ -46,7 +45,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
@@ -58,6 +56,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.local.linkpin.R
 import com.local.linkpin.data.ShortcutRecord
+import com.local.linkpin.routing.DomainKey
 import com.local.linkpin.shortcut.DefaultIcon
 import com.local.linkpin.shortcut.IconDecode
 import com.local.linkpin.ui.theme.LinkPinGradients
@@ -65,7 +64,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /**
- * 快捷方式列表主页：深色科技风，支持查看、编辑、删除（确认）、重新固定。
+ * 快捷方式列表主页：暖色奶油底 + 陶土橙强调，卡片化布局。
+ * 支持点击卡片编辑、点击图标预览大图、重新固定、删除（确认）。
  */
 @Composable
 fun ShortcutListScreen(
@@ -96,19 +96,12 @@ fun ShortcutListScreen(
             .fillMaxSize()
             .background(LinkPinGradients.background),
     ) {
-        // 顶部霓虹光晕
+        // 顶部暖色氛围光
         Box(
             modifier = Modifier
-                .size(340.dp)
-                .offset(x = 110.dp, y = (-160).dp)
-                .background(
-                    Brush.radialGradient(
-                        colors = listOf(
-                            MaterialTheme.colorScheme.primary.copy(alpha = 0.14f),
-                            Color.Transparent,
-                        ),
-                    ),
-                ),
+                .size(320.dp)
+                .offset(x = 150.dp, y = (-170).dp)
+                .background(LinkPinGradients.glow),
         )
         Scaffold(
             containerColor = Color.Transparent,
@@ -129,7 +122,7 @@ fun ShortcutListScreen(
                 } else {
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 96.dp),
+                        contentPadding = PaddingValues(start = 18.dp, end = 18.dp, bottom = 100.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
                         items(records, key = { it.id }) { record ->
@@ -158,6 +151,8 @@ fun ShortcutListScreen(
     pendingDelete?.let { record ->
         AlertDialog(
             onDismissRequest = { pendingDelete = null },
+            shape = RoundedCornerShape(24.dp),
+            containerColor = MaterialTheme.colorScheme.surface,
             title = { Text("删除快捷方式") },
             text = {
                 Text("将删除本地记录与图标文件。桌面上的旧图标需要你长按后手动移除。")
@@ -170,7 +165,7 @@ fun ShortcutListScreen(
                         Toast.makeText(context, "已删除", Toast.LENGTH_SHORT).show()
                     },
                 ) {
-                    Text("删除")
+                    Text("删除", color = MaterialTheme.colorScheme.error)
                 }
             },
             dismissButton = {
@@ -194,12 +189,12 @@ private fun GradientFab(onClick: () -> Unit) {
     Surface(
         onClick = onClick,
         modifier = Modifier
-            .size(58.dp)
+            .size(60.dp)
             .shadow(
-                elevation = 18.dp,
+                elevation = 14.dp,
                 shape = CircleShape,
-                ambientColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.55f),
-                spotColor = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.55f),
+                ambientColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.45f),
+                spotColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
             ),
         shape = CircleShape,
         color = Color.Transparent,
@@ -225,19 +220,19 @@ private fun BrandHeader(count: Int) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 18.dp),
+            .padding(horizontal = 22.dp, vertical = 20.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(
             modifier = Modifier
-                .size(46.dp)
+                .size(50.dp)
                 .shadow(
-                    elevation = 14.dp,
-                    shape = RoundedCornerShape(14.dp),
-                    ambientColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
-                    spotColor = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.5f),
+                    elevation = 10.dp,
+                    shape = RoundedCornerShape(16.dp),
+                    ambientColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.35f),
+                    spotColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f),
                 )
-                .clip(RoundedCornerShape(14.dp))
+                .clip(RoundedCornerShape(16.dp))
                 .background(LinkPinGradients.accent),
             contentAlignment = Alignment.Center,
         ) {
@@ -249,16 +244,31 @@ private fun BrandHeader(count: Int) {
             )
         }
         Spacer(modifier = Modifier.width(14.dp))
-        Column {
+        Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = "链接直达",
                 style = MaterialTheme.typography.headlineSmall,
+                color = MaterialTheme.colorScheme.onBackground,
             )
+            Spacer(modifier = Modifier.height(2.dp))
             Text(
                 text = if (count > 0) "已固定 $count 个快捷方式" else "把常用链接固定到桌面，一键直达",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+        }
+        if (count > 0) {
+            Surface(
+                shape = RoundedCornerShape(50),
+                color = MaterialTheme.colorScheme.primaryContainer,
+            ) {
+                Text(
+                    text = "$count",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp),
+                )
+            }
         }
     }
 }
@@ -266,45 +276,34 @@ private fun BrandHeader(count: Int) {
 @Composable
 private fun EmptyState(modifier: Modifier = Modifier) {
     Column(
-        modifier = modifier.padding(horizontal = 40.dp),
+        modifier = modifier.padding(horizontal = 44.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
         Box(
             modifier = Modifier
-                .size(128.dp)
+                .size(120.dp)
                 .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.08f))
+                .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f))
                 .border(
                     width = 1.dp,
-                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.35f),
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.25f),
                     shape = CircleShape,
                 ),
             contentAlignment = Alignment.Center,
         ) {
-            Box(
-                modifier = Modifier
-                    .size(80.dp)
-                    .background(
-                        Brush.radialGradient(
-                            colors = listOf(
-                                MaterialTheme.colorScheme.primary.copy(alpha = 0.18f),
-                                Color.Transparent,
-                            ),
-                        ),
-                    ),
-            )
             Icon(
                 painter = painterResource(R.drawable.ic_brand_link),
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(56.dp),
+                modifier = Modifier.size(52.dp),
             )
         }
-        Spacer(modifier = Modifier.height(28.dp))
+        Spacer(modifier = Modifier.height(26.dp))
         Text(
             text = "还没有快捷方式",
             style = MaterialTheme.typography.titleLarge,
+            color = MaterialTheme.colorScheme.onBackground,
         )
         Spacer(modifier = Modifier.height(8.dp))
         Text(
@@ -313,6 +312,19 @@ private fun EmptyState(modifier: Modifier = Modifier) {
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
         )
+        Spacer(modifier = Modifier.height(20.dp))
+        Surface(
+            shape = RoundedCornerShape(50),
+            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        ) {
+            Text(
+                text = "选图后支持裁剪 · 点击图标可预览",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 14.dp, vertical = 7.dp),
+            )
+        }
     }
 }
 
@@ -331,20 +343,30 @@ private fun ShortcutCard(
             (bitmap ?: DefaultIcon.generate(record.label)).asImageBitmap()
         }
     }
+    val domain = remember(record.url) { DomainKey.of(record.url) }
     Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
+        onClick = onEdit,
+        modifier = Modifier
+            .fillMaxWidth()
+            .shadow(
+                elevation = 3.dp,
+                shape = RoundedCornerShape(22.dp),
+                ambientColor = Color(0x33B27A55),
+                spotColor = Color(0x26B27A55),
+            ),
+        shape = RoundedCornerShape(22.dp),
         color = MaterialTheme.colorScheme.surface,
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 14.dp),
+            modifier = Modifier.padding(start = 14.dp, end = 10.dp, top = 14.dp, bottom = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Box(
                 modifier = Modifier
-                    .size(52.dp)
-                    .clip(RoundedCornerShape(15.dp))
+                    .size(54.dp)
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant)
                     .clickable(onClick = onPreview),
             ) {
                 icon?.let {
@@ -359,8 +381,8 @@ private fun ShortcutCard(
                         .fillMaxSize()
                         .border(
                             width = 1.dp,
-                            color = Color.White.copy(alpha = 0.12f),
-                            shape = RoundedCornerShape(15.dp),
+                            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
+                            shape = RoundedCornerShape(16.dp),
                         ),
                 )
             }
@@ -369,63 +391,74 @@ private fun ShortcutCard(
                 Text(
                     text = record.label,
                     style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = record.url,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
+                Spacer(modifier = Modifier.height(6.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (domain != null) {
+                        Surface(
+                            shape = RoundedCornerShape(7.dp),
+                            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f),
+                        ) {
+                            Text(
+                                text = domain,
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp),
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                    }
+                    Text(
+                        text = record.url,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
             }
-            IconButton(
-                onClick = onEdit,
-                modifier = Modifier
-                    .size(38.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.surfaceVariant),
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Edit,
-                    contentDescription = "编辑",
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(19.dp),
-                )
-            }
-            Spacer(modifier = Modifier.width(4.dp))
-            IconButton(
+            Spacer(modifier = Modifier.width(6.dp))
+            CircleAction(
+                icon = Icons.Default.Refresh,
+                contentDescription = "重新固定",
+                tint = MaterialTheme.colorScheme.secondary,
                 onClick = onRepin,
-                modifier = Modifier
-                    .size(38.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.surfaceVariant),
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Refresh,
-                    contentDescription = "重新固定",
-                    tint = MaterialTheme.colorScheme.secondary,
-                    modifier = Modifier.size(19.dp),
-                )
-            }
-            Spacer(modifier = Modifier.width(4.dp))
-            IconButton(
+            )
+            Spacer(modifier = Modifier.width(6.dp))
+            CircleAction(
+                icon = Icons.Default.Delete,
+                contentDescription = "删除",
+                tint = MaterialTheme.colorScheme.error,
                 onClick = onDelete,
-                modifier = Modifier
-                    .size(38.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.surfaceVariant),
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Delete,
-                    contentDescription = "删除",
-                    tint = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.size(19.dp),
-                )
-            }
+            )
         }
     }
 }
 
+@Composable
+private fun CircleAction(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    contentDescription: String,
+    tint: Color,
+    onClick: () -> Unit,
+) {
+    IconButton(
+        onClick = onClick,
+        modifier = Modifier
+            .size(36.dp)
+            .clip(CircleShape)
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)),
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = contentDescription,
+            tint = tint,
+            modifier = Modifier.size(18.dp),
+        )
+    }
+}

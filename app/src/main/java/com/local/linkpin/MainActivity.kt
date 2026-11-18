@@ -1,8 +1,11 @@
 package com.local.linkpin
 
+import android.graphics.Color
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -21,10 +24,14 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // 暖色浅底界面：固定深色系统栏图标，不随系统深色模式反转
+        enableEdgeToEdge(
+            statusBarStyle = SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT),
+            navigationBarStyle = SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT),
+        )
         val container = (application as LinkPinApp).container
         setContent {
-            // 深色科技风为默认主题；如需跟随系统深浅色，改回 LinkPinTheme() 即可
-            LinkPinTheme(darkTheme = true) {
+            LinkPinTheme {
                 LinkPinRoot(container)
             }
         }

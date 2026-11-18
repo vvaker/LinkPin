@@ -2,13 +2,17 @@ package com.local.linkpin.ui
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.CircularProgressIndicator
@@ -24,6 +28,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
@@ -33,6 +38,10 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+
+/** 预览弹窗的暖色近黑底（与裁剪页一致）。 */
+private val PreviewBackdrop = Color(0xF21C1510)
+private val PreviewHintColor = Color(0x99CDBFB2)
 
 /**
  * 全屏图片预览：双指缩放、双击放大/复位，右上角关闭，系统返回键关闭。
@@ -50,13 +59,23 @@ fun ImagePreviewDialog(
         BoxWithConstraints(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.94f)),
+                .background(PreviewBackdrop),
         ) {
             if (bitmap == null) {
-                CircularProgressIndicator(
-                    modifier = Modifier.align(Alignment.Center),
-                    color = MaterialTheme.colorScheme.primary,
-                )
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .size(56.dp)
+                        .clip(CircleShape)
+                        .background(Color(0x14F7F0E8)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    CircularProgressIndicator(
+                        color = MaterialTheme.colorScheme.primary,
+                        strokeWidth = 2.dp,
+                        modifier = Modifier.size(28.dp),
+                    )
+                }
             } else {
                 val image = bitmap
                 var scale by remember(image) { mutableFloatStateOf(1f) }
@@ -101,10 +120,11 @@ fun ImagePreviewDialog(
                             translationY = offset.y
                         },
                 )
+
                 Text(
                     text = "双指缩放 · 双击放大",
                     style = MaterialTheme.typography.bodySmall,
-                    color = Color.White.copy(alpha = 0.55f),
+                    color = PreviewHintColor,
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .navigationBarsPadding()
@@ -112,18 +132,23 @@ fun ImagePreviewDialog(
                 )
             }
 
-            // 关闭按钮放最后绘制，保证在全屏图片之上可点击
+            // 关闭按钮放最后绘制，保证在全屏图片之上可点击；暖色半透明圆形底提升可发现性
             IconButton(
                 onClick = onDismiss,
                 modifier = Modifier
                     .align(Alignment.TopEnd)
                     .statusBarsPadding()
-                    .padding(8.dp),
+                    .padding(14.dp)
+                    .size(44.dp)
+                    .clip(CircleShape)
+                    .background(Color(0x2EF7F0E8))
+                    .border(1.dp, Color(0x1FF7F0E8), CircleShape),
             ) {
                 Icon(
                     imageVector = Icons.Default.Close,
                     contentDescription = "关闭预览",
-                    tint = Color.White,
+                    tint = Color(0xFFF7F0E8),
+                    modifier = Modifier.size(22.dp),
                 )
             }
         }

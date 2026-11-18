@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="window_background">#090F1E</color>
+    <!-- 暖色奶油底：冷启动窗口背景与系统栏底色保持一致，避免深色闪屏 -->
+    <color name="window_background">#FAF5EF</color>
 </resources>

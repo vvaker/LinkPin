@@ -103,8 +103,8 @@ class RouteActivity : ComponentActivity() {
         resolution: LinkResolver.Resolution,
     ) {
         setContent {
-            // 与主界面保持一致：深色科技风
-            LinkPinTheme(darkTheme = true) {
+            // 与主界面保持一致：暖色卡片风
+            LinkPinTheme {
                 var apps by remember { mutableStateOf(resolution.apps) }
                 RouteChoiceScreen(
                     apps = apps,

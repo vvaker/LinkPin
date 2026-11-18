@@ -13,25 +13,25 @@ import android.graphics.Typeface
 
 /**
  * 默认字母图标：按名称首字 + 名称哈希渐变生成 512x512 位图。
- * 深色霓虹渐变底 + 左上柔光 + 底部压暗 + 圆角内描边 + 居中白色大字，
+ * 暖色渐变底（陶土/琥珀/焦糖等）+ 左上柔光 + 底部压暗 + 圆角内描边 + 居中白色大字，
  * 文字限制在画布中心约 42% 区域，为启动器遮罩预留安全区。
  */
 object DefaultIcon {
 
     const val SIZE = 512
 
-    /** 霓虹渐变对：按名称哈希取色，浅色在上、深色在下。 */
+    /** 暖色渐变对：按名称哈希取色，浅色在上、深色在下。 */
     private val GRADIENT_PAIRS = listOf(
-        intArrayOf(0xFF22D3EE.toInt(), 0xFF2563EB.toInt()),
-        intArrayOf(0xFF6366F1.toInt(), 0xFF8B5CF6.toInt()),
-        intArrayOf(0xFFA855F7.toInt(), 0xFFEC4899.toInt()),
-        intArrayOf(0xFF2DD4BF.toInt(), 0xFF16A34A.toInt()),
-        intArrayOf(0xFFFB923C.toInt(), 0xFFF43F5E.toInt()),
-        intArrayOf(0xFF0EA5E9.toInt(), 0xFF6366F1.toInt()),
-        intArrayOf(0xFFF43F5E.toInt(), 0xFFF97316.toInt()),
-        intArrayOf(0xFF10B981.toInt(), 0xFF14B8A6.toInt()),
-        intArrayOf(0xFFD946EF.toInt(), 0xFF7C3AED.toInt()),
-        intArrayOf(0xFFF59E0B.toInt(), 0xFFEF4444.toInt()),
+        intArrayOf(0xFFD98A5B.toInt(), 0xFFB4512F.toInt()),
+        intArrayOf(0xFFE0A458.toInt(), 0xFFC0762E.toInt()),
+        intArrayOf(0xFFC98A5E.toInt(), 0xFF9A5B33.toInt()),
+        intArrayOf(0xFFD08A78.toInt(), 0xFFA65441.toInt()),
+        intArrayOf(0xFFB9A05E.toInt(), 0xFF8C7633.toInt()),
+        intArrayOf(0xFFC07C8C.toInt(), 0xFF92495C.toInt()),
+        intArrayOf(0xFFD8B47A.toInt(), 0xFFAE8446.toInt()),
+        intArrayOf(0xFFA9805B.toInt(), 0xFF7C5638.toInt()),
+        intArrayOf(0xFFE39B6B.toInt(), 0xFFB96A3A.toInt()),
+        intArrayOf(0xFFC68155.toInt(), 0xFF8A4A2C.toInt()),
     )
 
     fun generate(label: String): Bitmap {
@@ -64,12 +64,12 @@ object DefaultIcon {
         }
         canvas.drawRect(0f, 0f, size, size, glow)
 
-        // 底部压暗，增强层次
+        // 底部压暗，增强层次（偏暖的深棕，避免发黑）
         val shade = Paint().apply {
             shader = LinearGradient(
                 0f, size * 0.62f, 0f, size,
-                Color.argb(0, 0, 0, 0),
-                Color.argb(72, 0, 0, 0),
+                Color.argb(0, 44, 26, 14),
+                Color.argb(88, 44, 26, 14),
                 Shader.TileMode.CLAMP,
             )
         }
