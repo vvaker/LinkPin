@@ -12,7 +12,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 /**
- * 列表 ViewModel：观察记录、删除（含图标文件清理）、重新固定。
+ * 列表 ViewModel：观察记录、删除（含图标文件清理）、按需固定到桌面。
  */
 class ShortcutListViewModel(
     private val repository: ShortcutRepository,
@@ -34,9 +34,10 @@ class ShortcutListViewModel(
         }
     }
 
-    fun repin(record: ShortcutRecord, onResult: (Boolean) -> Unit = {}) {
+    /** 用户点击列表里的图钉时，才请求在桌面创建快捷方式。 */
+    fun pin(record: ShortcutRecord, onResult: (Boolean) -> Unit = {}) {
         viewModelScope.launch {
-            onResult(publisher.repin(record))
+            onResult(publisher.create(record))
         }
     }
 }

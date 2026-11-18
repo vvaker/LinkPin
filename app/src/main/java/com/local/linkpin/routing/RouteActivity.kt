@@ -11,6 +11,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.core.content.pm.ShortcutManagerCompat
 import androidx.lifecycle.lifecycleScope
 import com.local.linkpin.AppContainer
 import com.local.linkpin.LinkPinApp
@@ -26,7 +27,7 @@ import kotlinx.coroutines.launch
  * 透明路由 Activity：
  * - 命中规则直接启动目标并结束；目标失效时清除规则并强制刷新候选；
  * - 首次选择时挂载 Compose 选择面板（勾选"记住"才保存规则；启动失败时从面板剔除失效候选）；
- * - 记录不存在时提示桌面图标已失效并给出移除指引（系统不允许应用自动删除桌面快捷方式）。
+ * - 记录不存在时提示桌面图标已失效，只有一个「确定」按钮，点击后尽力清理旧图标并关闭。
  */
 class RouteActivity : ComponentActivity() {
 
@@ -50,29 +51,38 @@ class RouteActivity : ComponentActivity() {
     }
 
     /**
-     * 记录已删除时点击桌面旧图标：系统不允许应用自动移除桌面快捷方式，
-     * 这里给出明确指引（长按图标 → 移除），而不是一闪而过的 Toast。
+     * 记录已删除时点击桌面旧图标：提示已失效，只提供「确定」（该快捷方式已无有效目标，没有可取消的操作）。
+     * 确定后尽力清理旧图标并关闭路由页。
      */
     private fun showDeletedNotice() {
+        val shortcutId = intent.getStringExtra(ShortcutContract.EXTRA_SHORTCUT_ID).orEmpty()
+        val label = intent.getStringExtra(ShortcutContract.EXTRA_SHORTCUT_LABEL)
         setContent {
             LinkPinTheme {
                 AlertDialog(
-                    onDismissRequest = { finish() },
+                    onDismissRequest = { removeStaleShortcut(shortcutId, label) },
                     title = { Text("快捷方式已失效") },
-                    text = {
-                        Text(
-                            "该链接已在应用内删除。\n\n" +
-                                "桌面上的这个图标无法由应用自动移除，请长按图标，选择「移除」即可删除。",
-                        )
-                    },
+                    text = { Text("该快捷方式已失效，请移除。") },
                     confirmButton = {
-                        TextButton(onClick = { finish() }) {
-                            Text("知道了")
+                        TextButton(onClick = { removeStaleShortcut(shortcutId, label) }) {
+                            Text("确定")
                         }
                     },
                 )
             }
         }
+    }
+
+    /** 尽力移除失效快捷方式：旧版广播安装的图标用 UNINSTALL_SHORTCUT，动态长驻快捷方式用 removeLongLivedShortcuts。 */
+    private fun removeStaleShortcut(shortcutId: String, label: String?) {
+        val launchIntent = ShortcutContract.routeIntent(this, shortcutId, label).apply {
+            addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        ShortcutContract.requestLegacyUninstall(this, label, launchIntent)
+        runCatching {
+            ShortcutManagerCompat.removeLongLivedShortcuts(this, listOf(shortcutId))
+        }
+        finish()
     }
 
     private suspend fun handleRouting(container: AppContainer, record: ShortcutRecord) {

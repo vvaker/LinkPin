@@ -26,7 +26,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -48,6 +48,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
@@ -59,13 +60,15 @@ import com.local.linkpin.data.ShortcutRecord
 import com.local.linkpin.routing.DomainKey
 import com.local.linkpin.shortcut.DefaultIcon
 import com.local.linkpin.shortcut.IconDecode
+import com.local.linkpin.shortcut.ShortcutContract
 import com.local.linkpin.ui.theme.LinkPinGradients
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /**
  * 快捷方式列表主页：暖色奶油底 + 陶土橙强调，卡片化布局。
- * 支持点击卡片编辑、点击图标预览大图、重新固定、删除（确认）。
+ * 点击卡片直接打开链接内容（与桌面快捷方式同一条路由）；图标点击预览大图；
+ * 尾部按钮按需固定到桌面、编辑、删除（确认）。
  */
 @Composable
 fun ShortcutListScreen(
@@ -128,12 +131,17 @@ fun ShortcutListScreen(
                         items(records, key = { it.id }) { record ->
                             ShortcutCard(
                                 record = record,
+                                onOpen = {
+                                    context.startActivity(
+                                        ShortcutContract.routeIntent(context, record.id),
+                                    )
+                                },
                                 onEdit = { onEdit(record) },
-                                onRepin = {
-                                    viewModel.repin(record) { ok ->
+                                onPin = {
+                                    viewModel.pin(record) { ok ->
                                         Toast.makeText(
                                             context,
-                                            if (ok) "已重新请求固定" else "桌面未确认，请检查桌面或重试",
+                                            if (ok) "已请求固定，请在桌面确认添加" else "桌面未确认，请检查桌面或重试",
                                             Toast.LENGTH_SHORT,
                                         ).show()
                                     }
@@ -153,9 +161,9 @@ fun ShortcutListScreen(
             onDismissRequest = { pendingDelete = null },
             shape = RoundedCornerShape(24.dp),
             containerColor = MaterialTheme.colorScheme.surface,
-            title = { Text("删除快捷方式") },
+            title = { Text("删除链接") },
             text = {
-                Text("将删除本地记录与图标文件。\n\n桌面上的旧图标无法由应用自动删除（系统限制），请长按桌面图标后选择「移除」。")
+                Text("将删除「${record.label}」的本地记录与图标文件，删除后不可恢复。")
             },
             confirmButton = {
                 TextButton(
@@ -252,7 +260,7 @@ private fun BrandHeader(count: Int) {
             )
             Spacer(modifier = Modifier.height(2.dp))
             Text(
-                text = if (count > 0) "已固定 $count 个快捷方式" else "把常用链接固定到桌面，一键直达",
+                text = if (count > 0) "共 $count 个链接 · 点击卡片直达内容" else "收藏常用链接，需要时再固定到桌面",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -301,13 +309,13 @@ private fun EmptyState(modifier: Modifier = Modifier) {
         }
         Spacer(modifier = Modifier.height(26.dp))
         Text(
-            text = "还没有快捷方式",
+            text = "还没有链接",
             style = MaterialTheme.typography.titleLarge,
             color = MaterialTheme.colorScheme.onBackground,
         )
         Spacer(modifier = Modifier.height(8.dp))
         Text(
-            text = "点击右下角的按钮，把视频、书籍或网页链接固定到桌面，之后一键直达",
+            text = "点击右下角的按钮添加链接，保存后点击卡片即可直达；需要桌面入口时再固定到桌面",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
@@ -319,7 +327,7 @@ private fun EmptyState(modifier: Modifier = Modifier) {
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         ) {
             Text(
-                text = "选图后支持裁剪 · 点击图标可预览",
+                text = "点击卡片直达 · 点击图标可预览",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = 14.dp, vertical = 7.dp),
@@ -331,8 +339,9 @@ private fun EmptyState(modifier: Modifier = Modifier) {
 @Composable
 private fun ShortcutCard(
     record: ShortcutRecord,
+    onOpen: () -> Unit,
     onEdit: () -> Unit,
-    onRepin: () -> Unit,
+    onPin: () -> Unit,
     onDelete: () -> Unit,
     onPreview: () -> Unit,
 ) {
@@ -345,7 +354,7 @@ private fun ShortcutCard(
     }
     val domain = remember(record.url) { DomainKey.of(record.url) }
     Surface(
-        onClick = onEdit,
+        onClick = onOpen,
         modifier = Modifier
             .fillMaxWidth()
             .shadow(
@@ -424,12 +433,19 @@ private fun ShortcutCard(
             }
             Spacer(modifier = Modifier.width(6.dp))
             CircleAction(
-                icon = Icons.Default.Refresh,
-                contentDescription = "重新固定",
-                tint = MaterialTheme.colorScheme.secondary,
-                onClick = onRepin,
+                painter = painterResource(R.drawable.ic_pin),
+                contentDescription = "固定到桌面",
+                tint = MaterialTheme.colorScheme.primary,
+                onClick = onPin,
             )
-            Spacer(modifier = Modifier.width(6.dp))
+            Spacer(modifier = Modifier.width(4.dp))
+            CircleAction(
+                icon = Icons.Default.Edit,
+                contentDescription = "编辑",
+                tint = MaterialTheme.colorScheme.secondary,
+                onClick = onEdit,
+            )
+            Spacer(modifier = Modifier.width(4.dp))
             CircleAction(
                 icon = Icons.Default.Delete,
                 contentDescription = "删除",
@@ -447,6 +463,38 @@ private fun CircleAction(
     tint: Color,
     onClick: () -> Unit,
 ) {
+    CircleActionButton(onClick = onClick) {
+        Icon(
+            imageVector = icon,
+            contentDescription = contentDescription,
+            tint = tint,
+            modifier = Modifier.size(18.dp),
+        )
+    }
+}
+
+@Composable
+private fun CircleAction(
+    painter: Painter,
+    contentDescription: String,
+    tint: Color,
+    onClick: () -> Unit,
+) {
+    CircleActionButton(onClick = onClick) {
+        Icon(
+            painter = painter,
+            contentDescription = contentDescription,
+            tint = tint,
+            modifier = Modifier.size(18.dp),
+        )
+    }
+}
+
+@Composable
+private fun CircleActionButton(
+    onClick: () -> Unit,
+    content: @Composable () -> Unit,
+) {
     IconButton(
         onClick = onClick,
         modifier = Modifier
@@ -454,11 +502,6 @@ private fun CircleAction(
             .clip(CircleShape)
             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)),
     ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = contentDescription,
-            tint = tint,
-            modifier = Modifier.size(18.dp),
-        )
+        content()
     }
 }

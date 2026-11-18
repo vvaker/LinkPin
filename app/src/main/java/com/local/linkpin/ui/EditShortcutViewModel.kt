@@ -19,6 +19,7 @@ import kotlinx.coroutines.launch
 
 /**
  * 创建/编辑表单 ViewModel：表单状态、保存（创建或更新）、图标处理与裁剪状态。
+ * 保存不再自动固定桌面，桌面入口由列表里的图钉按钮按需触发。
  */
 class EditShortcutViewModel(
     private val repository: ShortcutRepository,
@@ -37,7 +38,7 @@ class EditShortcutViewModel(
     )
 
     sealed interface SaveResult {
-        data class Success(val pinned: Boolean) : SaveResult
+        data object Success : SaveResult
         data class Failure(val message: String) : SaveResult
     }
 
@@ -148,12 +149,11 @@ class EditShortcutViewModel(
 
             val finalRecord = record.copy(iconPath = iconPath)
             repository.upsert(finalRecord)
-            val pinned = if (base == null) {
-                publisher.create(finalRecord)
-            } else {
+            // 创建时不再自动请求桌面固定；已有桌面入口的编辑场景仍刷新图标与名称。
+            if (base != null) {
                 publisher.update(finalRecord)
             }
-            onResult(SaveResult.Success(pinned))
+            onResult(SaveResult.Success)
         }
     }
 }

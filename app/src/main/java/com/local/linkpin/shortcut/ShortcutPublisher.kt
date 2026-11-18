@@ -12,13 +12,40 @@ import com.local.linkpin.routing.RouteActivity
 /** 桌面快捷方式 → RouteActivity 的意图契约（见 contracts/route-contract.md）。 */
 object ShortcutContract {
     const val EXTRA_SHORTCUT_ID = "shortcut_id"
+    const val EXTRA_SHORTCUT_LABEL = "shortcut_label"
+
+    /**
+     * 直达内容的意图：桌面快捷方式与应用内列表点击共用同一条路由。
+     * 调用方从非 Activity Context 启动时，自行补 FLAG_ACTIVITY_NEW_TASK。
+     */
+    fun routeIntent(context: Context, shortcutId: String, label: String? = null): Intent =
+        Intent(context, RouteActivity::class.java).apply {
+            action = Intent.ACTION_VIEW
+            putExtra(EXTRA_SHORTCUT_ID, shortcutId)
+            if (!label.isNullOrBlank()) putExtra(EXTRA_SHORTCUT_LABEL, label)
+        }
+
+    /**
+     * 尽力请求桌面移除旧图标：仅对旧版 INSTALL_SHORTCUT 广播安装的图标有效，
+     * requestPinShortcut 固定的图标系统不允许应用移除。
+     */
+    fun requestLegacyUninstall(context: Context, label: String?, intent: Intent) {
+        runCatching {
+            val uninstall = Intent("com.android.launcher.action.UNINSTALL_SHORTCUT").apply {
+                putExtra(Intent.EXTRA_SHORTCUT_INTENT, intent)
+                if (!label.isNullOrBlank()) putExtra(Intent.EXTRA_SHORTCUT_NAME, label)
+                putExtra("duplicate", false)
+            }
+            context.sendBroadcast(uninstall)
+        }
+    }
 }
 
 /**
  * 桌面快捷方式发布：
  * - 桌面支持时 requestPinShortcut；
  * - 不支持时降级为旧版 INSTALL_SHORTCUT 广播；
- * - 编辑走 updateShortcuts；重新固定重新走 create。
+ * - 编辑走 updateShortcuts；桌面入口由列表按需调用 create。
  */
 class ShortcutPublisher(
     private val context: Context,
@@ -26,9 +53,7 @@ class ShortcutPublisher(
 ) {
 
     private fun routeIntent(record: ShortcutRecord): Intent =
-        Intent(context, RouteActivity::class.java).apply {
-            action = Intent.ACTION_VIEW
-            putExtra(ShortcutContract.EXTRA_SHORTCUT_ID, record.id)
+        ShortcutContract.routeIntent(context, record.id, record.label).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
 
@@ -52,9 +77,6 @@ class ShortcutPublisher(
     fun update(record: ShortcutRecord): Boolean =
         ShortcutManagerCompat.updateShortcuts(context, listOf(buildInfo(record)))
 
-    /** 重新固定：等价于再次 create。 */
-    fun repin(record: ShortcutRecord): Boolean = create(record)
-
     /**
      * 删除记录时清理应用私有目录内的图标文件，并尽力请求桌面移除旧图标。
      *
@@ -67,14 +89,7 @@ class ShortcutPublisher(
         record.iconPath?.let { path ->
             runCatching { java.io.File(path).delete() }
         }
-        runCatching {
-            val uninstall = Intent("com.android.launcher.action.UNINSTALL_SHORTCUT").apply {
-                putExtra(Intent.EXTRA_SHORTCUT_NAME, record.label)
-                putExtra(Intent.EXTRA_SHORTCUT_INTENT, routeIntent(record))
-                putExtra("duplicate", false)
-            }
-            context.sendBroadcast(uninstall)
-        }
+        ShortcutContract.requestLegacyUninstall(context, record.label, routeIntent(record))
         runCatching {
             ShortcutManagerCompat.removeLongLivedShortcuts(context, listOf(record.id))
         }

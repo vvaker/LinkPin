@@ -4,6 +4,7 @@ import android.graphics.Color
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.Composable
@@ -56,6 +57,11 @@ private fun LinkPinRoot(container: AppContainer) {
 
     val currentEdit = editing
     if (creating || currentEdit != null) {
+        // 系统返回键回到列表，而不是直接退出应用
+        BackHandler {
+            creating = false
+            editing = null
+        }
         key(currentEdit?.id ?: "new") {
             val editViewModel: EditShortcutViewModel = viewModel(key = currentEdit?.id ?: "new") {
                 EditShortcutViewModel(

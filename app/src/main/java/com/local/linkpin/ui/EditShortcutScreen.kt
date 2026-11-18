@@ -69,7 +69,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
- * 创建/编辑表单：链接、名称、图标（Photo Picker 选图后裁剪 / 默认字母图标）、保存并固定。
+ * 创建/编辑表单：链接、名称、图标（Photo Picker 选图后裁剪 / 默认字母图标）、保存。
+ * 保存后回到列表，点击卡片即可直达；桌面入口由列表中的图钉按钮按需生成。
  * 暖色卡片式布局：分区卡片 + 渐变主按钮；图标可点击预览大图。
  */
 @Composable
@@ -201,7 +202,7 @@ fun EditShortcutScreen(
                             color = MaterialTheme.colorScheme.onBackground,
                         )
                         Text(
-                            text = "保存后会固定到桌面，一键直达",
+                            text = if (viewModel.isEditing) "修改后点击卡片即可直达内容" else "保存后点击卡片即可直达内容",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -372,18 +373,14 @@ fun EditShortcutScreen(
 
                 Spacer(modifier = Modifier.height(26.dp))
                 GradientButton(
-                    text = if (viewModel.isEditing) "保存" else "保存并固定到桌面",
+                    text = if (viewModel.isEditing) "保存" else "保存链接",
                     enabled = urlResult is LinkValidator.Result.Valid && labelOk,
                     onClick = {
                         scope.launch {
                             viewModel.save { result ->
                                 when (result) {
-                                    is EditShortcutViewModel.SaveResult.Success -> {
-                                        Toast.makeText(
-                                            context,
-                                            if (result.pinned) "已保存" else "已保存；桌面未确认固定请求，可在列表重新固定",
-                                            Toast.LENGTH_SHORT,
-                                        ).show()
+                                    EditShortcutViewModel.SaveResult.Success -> {
+                                        Toast.makeText(context, "已保存", Toast.LENGTH_SHORT).show()
                                         onDone()
                                     }
                                     is EditShortcutViewModel.SaveResult.Failure -> {
@@ -400,7 +397,7 @@ fun EditShortcutScreen(
                 )
                 Spacer(modifier = Modifier.height(14.dp))
                 Text(
-                    text = "链接地址支持网页与自定义 scheme；保存后会请求在桌面创建快捷方式",
+                    text = "链接支持网页与自定义 scheme；保存后点击卡片直达，需要桌面入口时在列表点图钉固定",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.9f),
                     textAlign = TextAlign.Center,

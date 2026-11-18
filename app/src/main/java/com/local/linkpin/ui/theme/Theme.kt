@@ -20,7 +20,7 @@ import androidx.compose.ui.unit.sp
  * - background 奶油米色，页面底色（配合 [LinkPinGradients.background] 渐变）；
  * - surface 暖白，卡片/输入框/弹窗容器；
  * - primary 陶土橙，主按钮、强调文字、选中态；
- * - secondary 焦糖棕，次级操作（重新固定等）；
+ * - secondary 焦糖棕，次级操作（编辑等）；
  * - tertiary 沙金，装饰性描边与光晕。
  */
 private val WarmColors = lightColorScheme(
