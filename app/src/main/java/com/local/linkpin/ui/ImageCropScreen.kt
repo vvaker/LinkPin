@@ -20,8 +20,10 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
@@ -33,7 +35,6 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -88,12 +89,9 @@ fun ImageCropScreen(
             if (bitmap != null) CropSource.Ready(bitmap) else CropSource.Failed
         }
     }
-    DisposableEffect(sourceState) {
-        onDispose {
-            (sourceState as? CropSource.Ready)?.bitmap?.recycle()
-        }
-    }
-
+    // 注意：位图不要在此处 recycle。Compose 的 Image 绘制由 RenderNode 显示列表驱动，
+    // 在 onDispose 里回收位图会导致「Canvas: trying to use a recycled bitmap」崩溃；
+    // minSdk 26 起位图原生内存由 GC 管理，离开组合后无引用会自动释放。
     BackHandler(onBack = onCancel)
 
     val source = (sourceState as? CropSource.Ready)?.bitmap
@@ -166,11 +164,12 @@ private fun CropContent(
             drawPath(path, Color.Black.copy(alpha = 0.62f))
         }
 
-        // 标题栏
+        // 标题栏（避开状态栏）
         Row(
             modifier = Modifier
                 .align(Alignment.TopCenter)
                 .fillMaxWidth()
+                .statusBarsPadding()
                 .padding(horizontal = 8.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -249,11 +248,12 @@ private fun CropContent(
             )
         }
 
-        // 底部操作区
+        // 底部操作区（避开手势导航条/任务栏）
         Column(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
+                .navigationBarsPadding()
                 .padding(horizontal = 20.dp, vertical = 16.dp),
         ) {
             Text(
