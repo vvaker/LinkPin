@@ -4,6 +4,9 @@ import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -23,7 +26,7 @@ import kotlinx.coroutines.launch
  * 透明路由 Activity：
  * - 命中规则直接启动目标并结束；目标失效时清除规则并强制刷新候选；
  * - 首次选择时挂载 Compose 选择面板（勾选"记住"才保存规则；启动失败时从面板剔除失效候选）；
- * - 记录不存在只提示"快捷方式已删除"。
+ * - 记录不存在时提示桌面图标已失效并给出移除指引（系统不允许应用自动删除桌面快捷方式）。
  */
 class RouteActivity : ComponentActivity() {
 
@@ -39,11 +42,36 @@ class RouteActivity : ComponentActivity() {
         lifecycleScope.launch {
             val record = container.shortcutRepository.get(shortcutId)
             if (record == null) {
-                Toast.makeText(this@RouteActivity, "快捷方式已删除", Toast.LENGTH_SHORT).show()
-                finish()
+                showDeletedNotice()
                 return@launch
             }
             handleRouting(container, record)
+        }
+    }
+
+    /**
+     * 记录已删除时点击桌面旧图标：系统不允许应用自动移除桌面快捷方式，
+     * 这里给出明确指引（长按图标 → 移除），而不是一闪而过的 Toast。
+     */
+    private fun showDeletedNotice() {
+        setContent {
+            LinkPinTheme {
+                AlertDialog(
+                    onDismissRequest = { finish() },
+                    title = { Text("快捷方式已失效") },
+                    text = {
+                        Text(
+                            "该链接已在应用内删除。\n\n" +
+                                "桌面上的这个图标无法由应用自动移除，请长按图标，选择「移除」即可删除。",
+                        )
+                    },
+                    confirmButton = {
+                        TextButton(onClick = { finish() }) {
+                            Text("知道了")
+                        }
+                    },
+                )
+            }
         }
     }
 

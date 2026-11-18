@@ -55,10 +55,28 @@ class ShortcutPublisher(
     /** 重新固定：等价于再次 create。 */
     fun repin(record: ShortcutRecord): Boolean = create(record)
 
-    /** 删除记录时清理应用私有目录内的图标文件。 */
+    /**
+     * 删除记录时清理应用私有目录内的图标文件，并尽力请求桌面移除旧图标。
+     *
+     * 说明：通过 requestPinShortcut 固定的桌面快捷方式，系统不允许应用自行移除
+     * （只能由用户长按图标删除），因此这里只做两类尽力而为的清理：
+     * 1. 旧版 INSTALL_SHORTCUT 广播安装的图标，用 UNINSTALL_SHORTCUT 广播移除；
+     * 2. removeLongLivedShortcuts 清理可能存在的动态长驻快捷方式。
+     */
     fun deleteRecord(record: ShortcutRecord) {
         record.iconPath?.let { path ->
             runCatching { java.io.File(path).delete() }
+        }
+        runCatching {
+            val uninstall = Intent("com.android.launcher.action.UNINSTALL_SHORTCUT").apply {
+                putExtra(Intent.EXTRA_SHORTCUT_NAME, record.label)
+                putExtra(Intent.EXTRA_SHORTCUT_INTENT, routeIntent(record))
+                putExtra("duplicate", false)
+            }
+            context.sendBroadcast(uninstall)
+        }
+        runCatching {
+            ShortcutManagerCompat.removeLongLivedShortcuts(context, listOf(record.id))
         }
     }
 

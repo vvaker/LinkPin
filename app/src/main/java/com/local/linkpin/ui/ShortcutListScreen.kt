@@ -155,7 +155,7 @@ fun ShortcutListScreen(
             containerColor = MaterialTheme.colorScheme.surface,
             title = { Text("删除快捷方式") },
             text = {
-                Text("将删除本地记录与图标文件。桌面上的旧图标需要你长按后手动移除。")
+                Text("将删除本地记录与图标文件。\n\n桌面上的旧图标无法由应用自动删除（系统限制），请长按桌面图标后选择「移除」。")
             },
             confirmButton = {
                 TextButton(
