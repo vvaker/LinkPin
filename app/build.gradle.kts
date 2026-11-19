@@ -14,8 +14,8 @@ android {
         // 支持夜神等 Android 7.1.2（API 25）模拟器；桌面固定通过 ShortcutManagerCompat 降级
         minSdk = 25
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 2
+        versionName = "1.1"
     }
 
     buildTypes {
