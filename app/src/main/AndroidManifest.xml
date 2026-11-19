@@ -5,6 +5,8 @@
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
     <!-- 旧版桌面快捷方式降级 -->
     <uses-permission android:name="com.android.launcher.permission.INSTALL_SHORTCUT" />
+    <!-- 仅用于展开 b23.tv 分享短链；展开失败时回退保存原始链接 -->
+    <uses-permission android:name="android.permission.INTERNET" />
 
     <application
         android:name=".LinkPinApp"
@@ -30,6 +32,22 @@
             android:noHistory="true"
             android:taskAffinity=""
             android:theme="@style/Theme.LinkPin.Transparent" />
+
+        <!-- 系统分享「文本」目标：哔哩哔哩等 App 分享链接时直接保存到列表 -->
+        <activity
+            android:name=".share.ShareIntakeActivity"
+            android:excludeFromRecents="true"
+            android:exported="true"
+            android:launchMode="singleTop"
+            android:taskAffinity=""
+            android:theme="@style/Theme.LinkPin.Transparent"
+            android:windowSoftInputMode="adjustResize">
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+        </activity>
     </application>
 
 </manifest>
