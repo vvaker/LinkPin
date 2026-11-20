@@ -91,6 +91,17 @@ class RouteActivity : ComponentActivity() {
         val isHttp = url.startsWith("http://", ignoreCase = true) ||
             url.startsWith("https://", ignoreCase = true)
 
+        // 微信读书等站点的分享链接要先经网页换出 deep link；直接交给 App 只会停在主页。
+        // 放在规则查询之前，避免此前记住的“用 App 打开”继续生效。
+        if (isHttp && BrowserFirst.shouldUseBrowser(url)) {
+            val ok = container.linkResolver.launch(RouteTarget.Browser, url)
+            if (!ok) {
+                Toast.makeText(this, "浏览器打开失败", Toast.LENGTH_SHORT).show()
+            }
+            finish()
+            return
+        }
+
         var forceRefresh = false
         if (domainKey != null) {
             val rule = container.routeRuleRepository.get(domainKey)
