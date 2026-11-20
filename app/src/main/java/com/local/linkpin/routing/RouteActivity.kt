@@ -18,6 +18,7 @@ import com.local.linkpin.LinkPinApp
 import com.local.linkpin.data.RouteRule
 import com.local.linkpin.data.RouteTarget
 import com.local.linkpin.data.ShortcutRecord
+import com.local.linkpin.share.WeReadLinks
 import com.local.linkpin.shortcut.ShortcutContract
 import com.local.linkpin.ui.RouteChoiceScreen
 import com.local.linkpin.ui.theme.LinkPinTheme
@@ -87,6 +88,24 @@ class RouteActivity : ComponentActivity() {
 
     private suspend fun handleRouting(container: AppContainer, record: ShortcutRecord) {
         val url = record.url
+        val deepLink = record.deepLink
+
+        // 保存时解析出的深链（微信读书）：优先直达 App 的具体书。
+        // 未安装 App 或深链失效时回退到原网页，由浏览器完成 token → bookId 的跳转。
+        if (!deepLink.isNullOrBlank()) {
+            val launched = container.linkResolver.launch(RouteTarget.App(WeReadLinks.PACKAGE), deepLink)
+            if (launched) {
+                finish()
+                return
+            }
+            val fallback = container.linkResolver.launch(RouteTarget.Browser, url)
+            if (!fallback) {
+                Toast.makeText(this, "没有可打开该链接的应用", Toast.LENGTH_SHORT).show()
+            }
+            finish()
+            return
+        }
+
         val domainKey = DomainKey.of(url)
         val isHttp = url.startsWith("http://", ignoreCase = true) ||
             url.startsWith("https://", ignoreCase = true)

@@ -106,9 +106,12 @@ class EditShortcutViewModel(
 
             val base = editing
             val now = System.currentTimeMillis()
+            // 改过链接就丢弃旧深链，避免点开时跳到另一个页面。
+            val keepDeepLink = base?.takeIf { it.url == url }?.deepLink
             val record = base?.copy(
                 url = url,
                 label = label,
+                deepLink = keepDeepLink,
                 updatedAt = now,
             ) ?: ShortcutRecord(
                 id = UUID.randomUUID().toString(),

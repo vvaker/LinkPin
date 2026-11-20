@@ -21,16 +21,21 @@ import kotlinx.coroutines.launch
 class ShareIntakeViewModel(
     private val repository: ShortcutRepository,
     private val shortLinkResolver: ShortLinkResolver,
+    private val weReadBookResolver: WeReadBookResolver = WeReadBookResolver(),
 ) : ViewModel() {
 
     data class UiState(
         val loading: Boolean = true,
         /** 正在展开短链。 */
         val resolving: Boolean = false,
+        /** 正在解析微信读书分享页里的 bookId。 */
+        val resolvingBook: Boolean = false,
         /** 正在比对已有记录。 */
         val checking: Boolean = false,
         val url: String = "",
         val label: String = "",
+        /** 微信读书深链；识别失败时为空，点击仍走原网页。 */
+        val deepLink: String? = null,
         val note: String? = null,
         val existing: ShortcutRecord? = null,
         val error: String? = null,
@@ -38,7 +43,7 @@ class ShareIntakeViewModel(
         val saved: Boolean = false,
         val savedAsUpdate: Boolean = false,
     ) {
-        val busy: Boolean get() = resolving || checking || saving
+        val busy: Boolean get() = resolving || resolvingBook || checking || saving
     }
 
     private val _state = MutableStateFlow(UiState())
@@ -71,10 +76,11 @@ class ShareIntakeViewModel(
         )
 
         viewModelScope.launch {
+            var finalUrl = cleaned
             if (resolving) {
                 val expanded = shortLinkResolver.expand(cleaned)
                 if (token != prepareToken) return@launch
-                val finalUrl = expanded?.let(ShareLinks::clean) ?: cleaned
+                finalUrl = expanded?.let(ShareLinks::clean) ?: cleaned
                 _state.update { state ->
                     state.copy(
                         resolving = false,
@@ -85,6 +91,22 @@ class ShareIntakeViewModel(
                             state.label
                         },
                         note = if (expanded == null) "没能展开短链，将保存原始分享链接" else null,
+                    )
+                }
+            }
+            if (WeReadLinks.isSharePage(finalUrl)) {
+                _state.update { it.copy(resolvingBook = true, note = null) }
+                val bookId = weReadBookResolver.resolveBookId(finalUrl)
+                if (token != prepareToken) return@launch
+                _state.update { state ->
+                    state.copy(
+                        resolvingBook = false,
+                        deepLink = bookId?.let(WeReadLinks::buildDeepLink),
+                        note = if (bookId == null) {
+                            "没能识别这本书，点击时仍用浏览器打开"
+                        } else {
+                            "已识别为微信读书，保存后点击直达 App"
+                        },
                     )
                 }
             }
@@ -125,11 +147,14 @@ class ShareIntakeViewModel(
         viewModelScope.launch {
             val now = System.currentTimeMillis()
             val base = current.existing
-            val record = base?.copy(url = url, label = label, updatedAt = now)
+            // 解析失败时沿用已有记录的深链；新记录没有深链则留空，点击仍走原网页。
+            val deepLink = current.deepLink ?: base?.deepLink
+            val record = base?.copy(url = url, label = label, deepLink = deepLink, updatedAt = now)
                 ?: ShortcutRecord(
                     id = UUID.randomUUID().toString(),
                     url = url,
                     label = label,
+                    deepLink = deepLink,
                     createdAt = now,
                     updatedAt = now,
                 )
@@ -155,9 +180,11 @@ class ShareIntakeViewModel(
         if (current.url.isBlank()) return
         _state.update { it.copy(checking = true) }
         val key = ShareLinks.dedupeKey(current.url)
+        val deepLink = current.deepLink
         val match = runCatching {
-            repository.observeAll().first().firstOrNull {
-                ShareLinks.dedupeKey(it.url) == key
+            repository.observeAll().first().firstOrNull { record ->
+                (deepLink != null && record.deepLink == deepLink) ||
+                    ShareLinks.dedupeKey(record.url) == key
             }
         }.getOrNull()
         if (token != prepareToken) return
@@ -165,6 +192,8 @@ class ShareIntakeViewModel(
             state.copy(
                 checking = false,
                 existing = match,
+                // 本次没解析出深链时沿用已有记录的，避免更新后丢失直达能力
+                deepLink = state.deepLink ?: match?.deepLink,
                 // 重复链接优先保留用户之前起的名称，避免被分享标题覆盖
                 label = if (match != null && !labelEdited) match.label else state.label,
             )

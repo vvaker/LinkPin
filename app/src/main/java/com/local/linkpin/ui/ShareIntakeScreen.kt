@@ -93,6 +93,7 @@ fun ShareIntakeScreen(
         state.loading -> "正在读取分享内容…"
         state.saving -> "正在保存…"
         state.resolving -> "正在展开 B 站短链…"
+        state.resolvingBook -> "正在识别微信读书链接…"
         state.checking -> "正在检查是否已收藏…"
         else -> null
     }

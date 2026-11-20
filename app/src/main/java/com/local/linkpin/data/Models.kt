@@ -10,6 +10,8 @@ data class ShortcutRecord(
     val id: String,
     val url: String,
     val label: String,
+    /** 可选深链：微信读书等场景保存原始分享链接，同时记录可直接打开 App 的地址。 */
+    val deepLink: String? = null,
     val iconPath: String? = null,
     val createdAt: Long,
     val updatedAt: Long,
